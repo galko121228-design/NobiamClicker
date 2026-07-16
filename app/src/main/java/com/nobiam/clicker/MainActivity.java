@@ -13,7 +13,7 @@ import androidx.appcompat.app.AppCompatActivity;
 public class MainActivity extends AppCompatActivity {
 
     private static final int OVERLAY_PERMISSION_REQUEST = 1001;
-    private Button btnGrantOverlay, btnStartMenu;
+    private Button btnGrantOverlay, btnGrantAccessibility, btnStartOverlay;
     private TextView tvStatus;
 
     @Override
@@ -22,7 +22,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         btnGrantOverlay = findViewById(R.id.btn_grant_overlay);
-        btnStartMenu = findViewById(R.id.btn_start_overlay);
+        btnGrantAccessibility = findViewById(R.id.btn_grant_accessibility);
+        btnStartOverlay = findViewById(R.id.btn_start_overlay);
         tvStatus = findViewById(R.id.tv_status);
 
         checkPermissions();
@@ -35,12 +36,18 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        btnStartMenu.setOnClickListener(v -> {
-            // ============================================================
-            // ПРОВЕРКА через Settings.canDrawOverlays() — 100% рабочий способ
-            // ============================================================
+        btnGrantAccessibility.setOnClickListener(v -> {
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            startActivity(intent);
+        });
+
+        btnStartOverlay.setOnClickListener(v -> {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
                 Toast.makeText(this, "❌ Сначала дайте разрешение Overlay", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!isAccessibilityEnabled()) {
+                Toast.makeText(this, "❌ Включите специальные возможности", Toast.LENGTH_LONG).show();
                 return;
             }
             Intent serviceIntent = new Intent(this, FloatingMenuService.class);
@@ -53,17 +60,32 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private boolean isAccessibilityEnabled() {
+        String enabledServices = Settings.Secure.getString(getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        return enabledServices != null && enabledServices.contains(getPackageName());
+    }
+
     private void checkPermissions() {
         boolean overlayGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
                 Settings.canDrawOverlays(this);
+        boolean accessibilityEnabled = isAccessibilityEnabled();
 
         if (overlayGranted) {
             btnGrantOverlay.setText("✅ Overlay разрешено");
             btnGrantOverlay.setEnabled(false);
+        }
+
+        if (accessibilityEnabled) {
+            btnGrantAccessibility.setText("✅ Accessibility включено");
+            btnGrantAccessibility.setEnabled(false);
+        }
+
+        if (overlayGranted && accessibilityEnabled) {
             tvStatus.setText("✅ Всё готово к работе");
             tvStatus.setTextColor(getColor(android.R.color.holo_green_light));
         } else {
-            tvStatus.setText("❌ Дайте разрешение Overlay");
+            tvStatus.setText("❌ Дайте разрешения ниже");
             tvStatus.setTextColor(getColor(android.R.color.holo_red_light));
         }
     }

@@ -10,22 +10,16 @@ import android.view.accessibility.AccessibilityEvent;
 public class ClickerService extends AccessibilityService {
 
     private static ClickerService instance;
-    private boolean isClicking = false;
     private Handler handler = new Handler(Looper.getMainLooper());
-    private int delayMs = 100;
+    private boolean isClicking = false;
     private int clickX = 500, clickY = 800;
+    private int delayMs = 100;
+    private static final int CLICK_DURATION = 50;
 
     @Override
     public void onCreate() {
         super.onCreate();
         instance = this;
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        instance = null;
-        stopClicking();
     }
 
     public static ClickerService getInstance() {
@@ -64,12 +58,16 @@ public class ClickerService extends AccessibilityService {
 
     private void performClick() {
         if (!isClicking) return;
+
         try {
             Path clickPath = new Path();
             clickPath.moveTo(clickX, clickY);
-            GestureDescription.Builder builder = new GestureDescription.Builder();
-            builder.addStroke(new GestureDescription.StrokeDescription(clickPath, 0, 1));
-            dispatchGesture(builder.build(), new GestureResultCallback() {
+
+            GestureDescription gesture = new GestureDescription.Builder()
+                    .addStroke(new GestureDescription.StrokeDescription(clickPath, 0, CLICK_DURATION))
+                    .build();
+
+            dispatchGesture(gesture, new GestureResultCallback() {
                 @Override
                 public void onCompleted(GestureDescription gestureDescription) {
                     super.onCompleted(gestureDescription);
@@ -77,9 +75,21 @@ public class ClickerService extends AccessibilityService {
                         handler.postDelayed(() -> performClick(), delayMs);
                     }
                 }
+
+                @Override
+                public void onCancelled(GestureDescription gestureDescription) {
+                    super.onCancelled(gestureDescription);
+                    if (isClicking) {
+                        handler.postDelayed(() -> performClick(), 50);
+                    }
+                }
             }, null);
+
         } catch (Exception e) {
             e.printStackTrace();
+            if (isClicking) {
+                handler.postDelayed(() -> performClick(), 100);
+            }
         }
     }
 }
