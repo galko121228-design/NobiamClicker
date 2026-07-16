@@ -12,5 +12,11 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
 rootProject.name = "NobiamClicker"
 include ':app'
