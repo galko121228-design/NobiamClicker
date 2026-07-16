@@ -48,6 +48,7 @@ public class FloatingMenuService extends Service {
     private boolean isSettingTarget = false;
     private int targetX = 500, targetY = 800;
     private float density;
+    private boolean isDragging = false;
 
     @Override
     public void onCreate() {
@@ -153,42 +154,55 @@ public class FloatingMenuService extends Service {
         windowManager.addView(logoLayout, logoParams);
         logoView = logoLayout;
 
-        logoLayout.setOnTouchListener(new LogoTouchListener());
+        // ============================================================
+        // FIX: OnTouchListener вместо OnClickListener (работает на всех устройствах)
+        // ============================================================
+        logoLayout.setOnTouchListener(new View.OnTouchListener() {
+            private float startX, startY;
+            private boolean isDragging = false;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        startX = event.getRawX();
+                        startY = event.getRawY();
+                        isDragging = false;
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        float dx = event.getRawX() - startX;
+                        float dy = event.getRawY() - startY;
+                        if (Math.abs(dx) > dp(10) || Math.abs(dy) > dp(10)) {
+                            isDragging = true;
+                            logoParams.x += (int) dx;
+                            logoParams.y += (int) dy;
+                            startX = event.getRawX();
+                            startY = event.getRawY();
+                            windowManager.updateViewLayout(logoView, logoParams);
+                            prefs.edit().putInt("logo_x", logoParams.x).putInt("logo_y", logoParams.y).apply();
+                        }
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                        if (!isDragging) {
+                            // Это клик, а не перетаскивание
+                            v.performClick(); // Для Accessibility
+                            toggleMenu();
+                        }
+                        return true;
+                }
+                return false;
+            }
+        });
     }
 
-    private class LogoTouchListener implements View.OnTouchListener {
-        private int initialX, initialY;
-        private float initialTouchX, initialTouchY;
-        private boolean isDragging = false;
-
-        @Override
-        public boolean onTouch(View v, MotionEvent event) {
-            switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
-                    initialX = logoParams.x;
-                    initialY = logoParams.y;
-                    initialTouchX = event.getRawX();
-                    initialTouchY = event.getRawY();
-                    isDragging = false;
-                    return true;
-                case MotionEvent.ACTION_MOVE:
-                    float dx = event.getRawX() - initialTouchX;
-                    float dy = event.getRawY() - initialTouchY;
-                    if (Math.abs(dx) > dp(10) || Math.abs(dy) > dp(10)) {
-                        isDragging = true;
-                        logoParams.x = initialX + (int) dx;
-                        logoParams.y = initialY + (int) dy;
-                        windowManager.updateViewLayout(logoView, logoParams);
-                        prefs.edit().putInt("logo_x", logoParams.x).putInt("logo_y", logoParams.y).apply();
-                    }
-                    return true;
-                case MotionEvent.ACTION_UP:
-                    if (!isDragging) {
-                        toggleMenu();
-                    }
-                    return true;
-            }
-            return false;
+    private void toggleMenu() {
+        Toast.makeText(this, isMenuOpen ? "📂 Закрываем меню" : "📂 Открываем меню", Toast.LENGTH_SHORT).show();
+        if (isMenuOpen) {
+            hideMenu();
+        } else {
+            showMenu();
         }
     }
 
@@ -250,6 +264,7 @@ public class FloatingMenuService extends Service {
         windowManager.addView(menuLayout, menuParams);
         menuView = menuLayout;
 
+        // Перетаскивание меню
         menuLayout.setOnTouchListener(new View.OnTouchListener() {
             private int initialX, initialY;
             private float initialTouchX, initialTouchY;
@@ -291,17 +306,15 @@ public class FloatingMenuService extends Service {
         return btn;
     }
 
-    private void toggleMenu() {
-        if (isMenuOpen) hideMenu();
-        else showMenu();
-    }
-
     private void showMenu() {
         if (menuView != null) {
             menuView.setVisibility(View.VISIBLE);
             menuView.animate().alpha(1.0f).setDuration(250)
                     .setInterpolator(new DecelerateInterpolator()).start();
             isMenuOpen = true;
+            Toast.makeText(this, "📂 Меню открыто", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "❌ Меню не создано", Toast.LENGTH_SHORT).show();
         }
     }
 
