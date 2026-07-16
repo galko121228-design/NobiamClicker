@@ -1,0 +1,19 @@
+--- a/app/src/main/java/com/nobiam/clicker/FloatingMenuService.java
++++ b/app/src/main/java/com/nobiam/clicker/FloatingMenuService.java
+@@ -204,9 +204,9 @@ public class FloatingMenuService extends Service {
+                     initialX = menuParams.x;
+                     initialY = menuParams.y;
+                     initialTouchX = event.getRawX();
+                     initialTouchY = event.getRawY();
+-                    return true;
++                    return false; // 🔥 важно: не блокируем кнопки внутри меню
+                 case MotionEvent.ACTION_MOVE:
+                     menuParams.x = initialX + (int) (event.getRawX() - initialTouchX);
+                     menuParams.y = initialY + (int) (event.getRawY() - initialTouchY);
+                     windowManager.updateViewLayout(menuView, menuParams);
+@@ -214,7 +214,7 @@ public class FloatingMenuService extends Service {
+                 }
+                 return false;
+             }
+         });
+     }

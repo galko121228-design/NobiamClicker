@@ -1,0 +1,9 @@
+--- a/app/src/main/java/com/nobiam/clicker/FloatingMenuService.java
++++ b/app/src/main/java/com/nobiam/clicker/FloatingMenuService.java
+@@ -111,6 +111,8 @@ public class FloatingMenuService extends Service {
+         logoLayout.setBackground(gd);
++        logoLayout.setClickable(true);
++        logoLayout.setFocusable(true);
+ 
+         TextView logoText = new TextView(this);
+         logoText.setText("⚔️");
