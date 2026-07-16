@@ -156,7 +156,6 @@ public class FloatingButtonService extends Service {
 
         GradientDrawable bg = (GradientDrawable) floatingView.getBackground();
         int targetBorderColor = isActive ? 0xFF2ECC71 : 0xFFE74C3C;
-        float targetElevation = dpToPx(isActive ? 12 : 6);
         float targetAlpha = isActive ? 1.0f : 0.6f;
 
         Drawable drawable = iconView.getDrawable();
@@ -176,12 +175,8 @@ public class FloatingButtonService extends Service {
             borderAnim.start();
 
             floatingView.animate().alpha(targetAlpha).setDuration(300).start();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                floatingView.animate().elevation(targetElevation).setDuration(300).start();
-            }
         } else {
             bg.setStroke(2, targetBorderColor);
-            floatingView.setElevation(targetElevation);
             floatingView.setAlpha(targetAlpha);
         }
     }
