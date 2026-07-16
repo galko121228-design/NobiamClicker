@@ -3,8 +3,6 @@ name: Build Nobiam Clicker APK
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -24,7 +22,7 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Generate Gradle Wrapper
-        run: gradle wrapper --gradle-version 8.7
+        run: gradle wrapper --gradle-version 7.4
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
