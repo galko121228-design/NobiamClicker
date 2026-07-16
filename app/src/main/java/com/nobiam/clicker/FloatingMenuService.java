@@ -1,73 +1,48 @@
 package com.nobiam.clicker;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.app.Service;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.pm.ServiceInfo;
-import android.graphics.Color;
-import android.graphics.PixelFormat;
+import android.app.*;
+import android.content.*;
+import android.graphics.*;
 import android.graphics.drawable.GradientDrawable;
-import android.os.Build;
-import android.os.IBinder;
+import android.os.*;
 import android.provider.Settings;
-import android.view.Gravity;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.WindowManager;
+import android.view.*;
 import android.view.animation.DecelerateInterpolator;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.widget.*;
 
 import androidx.core.app.NotificationCompat;
 
 public class FloatingMenuService extends Service {
 
-    private static final String CHANNEL_ID = "nobiam_overlay";
-    private static final int NOTIFICATION_ID = 1001;
-
     private WindowManager windowManager;
     private SharedPreferences prefs;
-    private View logoView;
-    private View menuView;
-    private View circleView;
+
+    private View logoView, menuView, circleView;
     private Button macroButton;
-    private WindowManager.LayoutParams logoParams;
-    private WindowManager.LayoutParams menuParams;
-    private WindowManager.LayoutParams circleParams;
+
+    private WindowManager.LayoutParams logoParams, menuParams, circleParams;
+
     private boolean isMenuOpen = false;
     private boolean isSettingTarget = false;
+
     private int targetX = 500, targetY = 800;
     private float density;
 
     @Override
     public void onCreate() {
         super.onCreate();
+
         prefs = getSharedPreferences("NobiamPrefs", MODE_PRIVATE);
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         density = getResources().getDisplayMetrics().density;
 
-        targetX = prefs.getInt("target_x", 500);
-        targetY = prefs.getInt("target_y", 800);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "❌ Нет разрешения Overlay", Toast.LENGTH_LONG).show();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                !Settings.canDrawOverlays(this)) {
             stopSelf();
             return;
         }
 
-        createNotificationChannel();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, createNotification(),
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        } else {
-            startForeground(NOTIFICATION_ID, createNotification());
-        }
+        startForeground(1, createNotification());
 
         createLogo();
         createMenu();
@@ -78,319 +53,197 @@ public class FloatingMenuService extends Service {
         }
     }
 
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "Nobiam Overlay",
-                    NotificationManager.IMPORTANCE_LOW
-            );
-            channel.setDescription("Оверлей для автоматизации");
-            NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            manager.createNotificationChannel(channel);
-        }
-    }
-
     private Notification createNotification() {
-        return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("⚔️ Nobiam Clicker")
-                .setContentText("Нажмите на иконку ⚔️ для меню")
+        String id = "overlay";
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel ch = new NotificationChannel(
+                    id, "Overlay", NotificationManager.IMPORTANCE_LOW);
+            getSystemService(NotificationManager.class)
+                    .createNotificationChannel(ch);
+        }
+
+        return new NotificationCompat.Builder(this, id)
+                .setContentTitle("Clicker")
                 .setSmallIcon(android.R.drawable.ic_menu_edit)
-                .setPriority(NotificationCompat.PRIORITY_LOW)
-                .setOngoing(true)
                 .build();
     }
 
-    private int dp(int px) {
-        return (int) (px * density);
+    private int dp(int v) {
+        return (int)(v * density);
     }
 
     private void createLogo() {
-        LinearLayout logoLayout = new LinearLayout(this);
-        logoLayout.setOrientation(LinearLayout.VERTICAL);
-        logoLayout.setGravity(Gravity.CENTER);
-        logoLayout.setPadding(dp(10), dp(10), dp(10), dp(10));
-
-        GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.OVAL);
-        gd.setColor(Color.parseColor("#1A1A1A"));
-        gd.setStroke(dp(2), Color.parseColor("#2ECC71"));
-        logoLayout.setBackground(gd);
-
-        logoLayout.setClickable(true);
-        logoLayout.setFocusable(true);
-
-        TextView logoText = new TextView(this);
-        logoText.setText("⚔️");
-        logoText.setTextSize(28f);
-        logoText.setPadding(dp(4), dp(4), dp(4), dp(4));
-        logoLayout.addView(logoText);
+        TextView logo = new TextView(this);
+        logo.setText("⚔️");
+        logo.setTextSize(28f);
+        logo.setGravity(Gravity.CENTER);
+        logo.setBackgroundColor(Color.BLACK);
+        logo.setClickable(true);
 
         logoParams = new WindowManager.LayoutParams(
-                dp(72), dp(72),
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                        : WindowManager.LayoutParams.TYPE_PHONE,
+                dp(70), dp(70),
+                Build.VERSION.SDK_INT >= 26 ?
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
+                        WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT
         );
+
         logoParams.gravity = Gravity.TOP | Gravity.START;
-        logoParams.x = prefs.getInt("logo_x", dp(50));
-        logoParams.y = prefs.getInt("logo_y", dp(200));
+        logoParams.x = 100;
+        logoParams.y = 300;
 
-        windowManager.addView(logoLayout, logoParams);
-        logoView = logoLayout;
+        windowManager.addView(logo, logoParams);
+        logoView = logo;
 
-        logoLayout.setOnTouchListener(new View.OnTouchListener() {
-            private float startX, startY;
-            private boolean isDragging = false;
+        logo.setOnTouchListener(new View.OnTouchListener() {
+            float startX, startY;
+            boolean drag = false;
 
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
+            public boolean onTouch(View v, MotionEvent e) {
+
+                switch (e.getAction()) {
+
                     case MotionEvent.ACTION_DOWN:
-                        startX = event.getRawX();
-                        startY = event.getRawY();
-                        isDragging = false;
+                        startX = e.getRawX();
+                        startY = e.getRawY();
+                        drag = false;
                         return true;
 
                     case MotionEvent.ACTION_MOVE:
-                        float dx = event.getRawX() - startX;
-                        float dy = event.getRawY() - startY;
-                        if (Math.abs(dx) > dp(10) || Math.abs(dy) > dp(10)) {
-                            isDragging = true;
-                            logoParams.x += (int) dx;
-                            logoParams.y += (int) dy;
-                            startX = event.getRawX();
-                            startY = event.getRawY();
+                        float dx = e.getRawX() - startX;
+                        float dy = e.getRawY() - startY;
+
+                        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                            drag = true;
+
+                            logoParams.x += dx;
+                            logoParams.y += dy;
+
+                            startX = e.getRawX();
+                            startY = e.getRawY();
+
                             windowManager.updateViewLayout(logoView, logoParams);
-                            prefs.edit().putInt("logo_x", logoParams.x).putInt("logo_y", logoParams.y).apply();
                         }
                         return true;
 
                     case MotionEvent.ACTION_UP:
-                        if (!isDragging) {
-                            toggleMenu();
-                        }
+                        if (!drag) toggleMenu();
                         return true;
                 }
                 return false;
             }
         });
-    }
-
-    private void toggleMenu() {
-        if (isMenuOpen) {
-            hideMenu();
-        } else {
-            showMenu();
-        }
-    }
-
-    private void showMenu() {
-        if (menuView != null) {
-            menuView.setVisibility(View.VISIBLE);
-            menuView.animate().alpha(1.0f).setDuration(250)
-                    .setInterpolator(new DecelerateInterpolator()).start();
-            isMenuOpen = true;
-        }
-    }
-
-    private void hideMenu() {
-        if (menuView != null) {
-            menuView.animate().alpha(0.0f).setDuration(200).withEndAction(() -> {
-                menuView.setVisibility(View.GONE);
-                isMenuOpen = false;
-            }).start();
-        }
     }
 
     private void createMenu() {
-        LinearLayout menuLayout = new LinearLayout(this);
-        menuLayout.setOrientation(LinearLayout.VERTICAL);
-        menuLayout.setPadding(dp(20), dp(20), dp(20), dp(20));
-        menuLayout.setGravity(Gravity.CENTER);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setBackgroundColor(Color.BLACK);
+        layout.setPadding(dp(20), dp(20), dp(20), dp(20));
 
-        GradientDrawable menuBg = new GradientDrawable();
-        menuBg.setShape(GradientDrawable.RECTANGLE);
-        menuBg.setCornerRadius(dp(20));
-        menuBg.setColor(Color.parseColor("#CC1A1A1A"));
-        menuBg.setStroke(dp(1), Color.parseColor("#2ECC71"));
-        menuLayout.setBackground(menuBg);
+        Button add = new Button(this);
+        add.setText("Добавить точку");
+        add.setOnClickListener(v -> showCircle());
 
-        TextView title = new TextView(this);
-        title.setText("⚔️ NOBIAM MENU");
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(20f);
-        title.setGravity(Gravity.CENTER);
-        title.setPadding(0, 0, 0, dp(16));
-        menuLayout.addView(title);
+        Button close = new Button(this);
+        close.setText("Закрыть");
+        close.setOnClickListener(v -> hideMenu());
 
-        Button btnAdd = createStyledButton("➕ Добавить макрос", "#2ECC71");
-        btnAdd.setOnClickListener(v -> {
-            if (isSettingTarget) {
-                Toast.makeText(this, "Уже настраиваете позицию", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            showTargetCircle();
-        });
-        menuLayout.addView(btnAdd);
-
-        View divider = new View(this);
-        divider.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(1)));
-        divider.setBackgroundColor(Color.parseColor("#333333"));
-        divider.setPadding(0, dp(12), 0, dp(12));
-        menuLayout.addView(divider);
-
-        Button btnClose = createStyledButton("✕ Закрыть", "#E74C3C");
-        btnClose.setOnClickListener(v -> hideMenu());
-        menuLayout.addView(btnClose);
+        layout.addView(add);
+        layout.addView(close);
 
         menuParams = new WindowManager.LayoutParams(
-                dp(360), WindowManager.LayoutParams.WRAP_CONTENT,
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                        : WindowManager.LayoutParams.TYPE_PHONE,
+                dp(250), WindowManager.LayoutParams.WRAP_CONTENT,
+                Build.VERSION.SDK_INT >= 26 ?
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
+                        WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT
         );
+
         menuParams.gravity = Gravity.CENTER;
-        menuParams.x = 0;
-        menuParams.y = 0;
-        menuParams.alpha = 0.0f;
 
-        windowManager.addView(menuLayout, menuParams);
-        menuView = menuLayout;
-
-        menuLayout.setOnTouchListener(new View.OnTouchListener() {
-            private int initialX, initialY;
-            private float initialTouchX, initialTouchY;
-
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        initialX = menuParams.x;
-                        initialY = menuParams.y;
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
-                        return false;
-
-                    case MotionEvent.ACTION_MOVE:
-                        menuParams.x = initialX + (int) (event.getRawX() - initialTouchX);
-                        menuParams.y = initialY + (int) (event.getRawY() - initialTouchY);
-                        windowManager.updateViewLayout(menuView, menuParams);
-                        return true;
-                }
-                return false;
-            }
-        });
+        windowManager.addView(layout, menuParams);
+        menuView = layout;
     }
 
-    private Button createStyledButton(String text, String color) {
-        Button btn = new Button(this);
-        btn.setText(text);
-        btn.setTextColor(Color.WHITE);
-        btn.setBackgroundColor(Color.parseColor(color));
-        btn.setPadding(dp(20), dp(14), dp(20), dp(14));
-        btn.setAllCaps(false);
-        btn.setTextSize(16f);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        params.setMargins(0, dp(6), 0, dp(6));
-        btn.setLayoutParams(params);
-        return btn;
+    private void toggleMenu() {
+        if (isMenuOpen) hideMenu(); else showMenu();
     }
 
-    private void showTargetCircle() {
+    private void showMenu() {
+        menuView.setVisibility(View.VISIBLE);
+        isMenuOpen = true;
+    }
+
+    private void hideMenu() {
+        menuView.setVisibility(View.GONE);
+        isMenuOpen = false;
+    }
+
+    private void showCircle() {
         isSettingTarget = true;
         hideMenu();
 
-        LinearLayout circleLayout = new LinearLayout(this);
-        circleLayout.setGravity(Gravity.CENTER);
-        circleLayout.setPadding(dp(8), dp(8), dp(8), dp(8));
-
-        GradientDrawable circleBg = new GradientDrawable();
-        circleBg.setShape(GradientDrawable.OVAL);
-        circleBg.setStroke(dp(3), Color.parseColor("#FF4444"));
-        circleBg.setColor(Color.parseColor("#33FF4444"));
-        circleLayout.setBackground(circleBg);
-
-        TextView hint = new TextView(this);
-        hint.setText("🎯");
-        hint.setTextSize(32f);
-        circleLayout.addView(hint);
-
-        int savedCircleX = prefs.getInt("circle_x", dp(100));
-        int savedCircleY = prefs.getInt("circle_y", dp(300));
+        View circle = new View(this);
+        circle.setBackgroundColor(Color.RED);
 
         circleParams = new WindowManager.LayoutParams(
-                dp(120), dp(120),
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                        : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                dp(100), dp(100),
+                Build.VERSION.SDK_INT >= 26 ?
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
+                        WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
         );
+
         circleParams.gravity = Gravity.TOP | Gravity.START;
-        circleParams.x = savedCircleX;
-        circleParams.y = savedCircleY;
+        circleParams.x = 200;
+        circleParams.y = 400;
 
-        windowManager.addView(circleLayout, circleParams);
-        circleView = circleLayout;
+        windowManager.addView(circle, circleParams);
+        circleView = circle;
 
-        circleLayout.setOnTouchListener(new View.OnTouchListener() {
-            private int initialX, initialY;
-            private float initialTouchX, initialTouchY;
-            private boolean isDragging = false;
+        circle.setOnTouchListener(new View.OnTouchListener() {
+            float sx, sy;
 
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
+            public boolean onTouch(View v, MotionEvent e) {
+
+                switch (e.getAction()) {
+
                     case MotionEvent.ACTION_DOWN:
-                        initialX = circleParams.x;
-                        initialY = circleParams.y;
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
-                        isDragging = false;
+                        sx = e.getRawX();
+                        sy = e.getRawY();
                         return true;
 
                     case MotionEvent.ACTION_MOVE:
-                        float dx = event.getRawX() - initialTouchX;
-                        float dy = event.getRawY() - initialTouchY;
-                        if (Math.abs(dx) > dp(8) || Math.abs(dy) > dp(8)) {
-                            isDragging = true;
-                            circleParams.x = initialX + (int) dx;
-                            circleParams.y = initialY + (int) dy;
-                            windowManager.updateViewLayout(circleView, circleParams);
-                        }
+                        circleParams.x += e.getRawX() - sx;
+                        circleParams.y += e.getRawY() - sy;
+
+                        sx = e.getRawX();
+                        sy = e.getRawY();
+
+                        windowManager.updateViewLayout(circleView, circleParams);
                         return true;
 
                     case MotionEvent.ACTION_UP:
-                        targetX = circleParams.x + dp(60);
-                        targetY = circleParams.y + dp(60);
+                        targetX = circleParams.x;
+                        targetY = circleParams.y;
+
                         prefs.edit()
                                 .putInt("target_x", targetX)
                                 .putInt("target_y", targetY)
-                                .putInt("circle_x", circleParams.x)
-                                .putInt("circle_y", circleParams.y)
                                 .putBoolean("has_macro", true)
                                 .apply();
+
                         windowManager.removeView(circleView);
                         circleView = null;
-                        isSettingTarget = false;
+
                         createMacroButton();
-                        Toast.makeText(FloatingMenuService.this,
-                                "✅ Точка сохранена", Toast.LENGTH_SHORT).show();
                         return true;
                 }
                 return false;
@@ -402,100 +255,35 @@ public class FloatingMenuService extends Service {
         if (macroButton != null) return;
 
         macroButton = new Button(this);
-        macroButton.setText("⚔️");
-        macroButton.setTextSize(28f);
-        macroButton.setTextColor(Color.WHITE);
-        macroButton.setBackgroundColor(Color.parseColor("#2ECC71"));
-        macroButton.setAllCaps(false);
-        macroButton.setPadding(0, 0, 0, 0);
+        macroButton.setText("▶");
 
-        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+        WindowManager.LayoutParams p = new WindowManager.LayoutParams(
                 dp(70), dp(70),
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                        : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                Build.VERSION.SDK_INT >= 26 ?
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
+                        WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
         );
-        params.gravity = Gravity.TOP | Gravity.START;
-        params.x = prefs.getInt("macro_x", dp(200));
-        params.y = prefs.getInt("macro_y", dp(500));
 
-        windowManager.addView(macroButton, params);
+        p.gravity = Gravity.TOP | Gravity.START;
+        p.x = 300;
+        p.y = 500;
+
+        windowManager.addView(macroButton, p);
 
         macroButton.setOnTouchListener(new View.OnTouchListener() {
-            private float startX, startY;
-            private boolean isDragging = false;
 
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        startX = event.getRawX();
-                        startY = event.getRawY();
-                        isDragging = false;
-                        startClicking();
-                        macroButton.setBackgroundColor(Color.parseColor("#FF4444"));
-                        return true;
+            public boolean onTouch(View v, MotionEvent e) {
 
-                    case MotionEvent.ACTION_MOVE:
-                        float dx = event.getRawX() - startX;
-                        float dy = event.getRawY() - startY;
-                        if (Math.abs(dx) > dp(10) || Math.abs(dy) > dp(10)) {
-                            isDragging = true;
-                            params.x += (int) dx;
-                            params.y += (int) dy;
-                            startX = event.getRawX();
-                            startY = event.getRawY();
-                            windowManager.updateViewLayout(macroButton, params);
-                            prefs.edit()
-                                    .putInt("macro_x", params.x)
-                                    .putInt("macro_y", params.y)
-                                    .apply();
-                        }
-                        return true;
-
-                    case MotionEvent.ACTION_UP:
-                        stopClicking();
-                        macroButton.setBackgroundColor(Color.parseColor("#2ECC71"));
-                        return true;
+                if (e.getAction() == MotionEvent.ACTION_DOWN) {
+                    Toast.makeText(FloatingMenuService.this,
+                            "CLICK " + targetX + "," + targetY,
+                            Toast.LENGTH_SHORT).show();
                 }
-                return false;
+                return true;
             }
         });
-    }
-
-    private void startClicking() {
-        ClickerService clickerService = ClickerService.getInstance();
-        if (clickerService != null) {
-            clickerService.setClickPosition(targetX, targetY);
-            int cps = prefs.getInt("cps", 10);
-            clickerService.setCPS(cps);
-            clickerService.startClicking();
-        } else {
-            Toast.makeText(this, "⚠️ Включите специальные возможности", Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void stopClicking() {
-        ClickerService clickerService = ClickerService.getInstance();
-        if (clickerService != null) {
-            clickerService.stopClicking();
-        }
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        stopClicking();
-        try {
-            if (logoView != null) windowManager.removeView(logoView);
-            if (menuView != null) windowManager.removeView(menuView);
-            if (circleView != null) windowManager.removeView(circleView);
-            if (macroButton != null) windowManager.removeView(macroButton);
-        } catch (Exception e) {}
     }
 
     @Override
