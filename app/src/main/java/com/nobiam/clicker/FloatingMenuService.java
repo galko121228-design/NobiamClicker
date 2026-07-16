@@ -522,3 +522,229 @@ public class FloatingMenuService extends Service {
         return null;
     }
 }
+
+    private void showTargetCircle() {
+        isSettingTarget = true;
+        hideMenu();
+
+        LinearLayout circleLayout = new LinearLayout(this);
+        circleLayout.setGravity(Gravity.CENTER);
+        circleLayout.setPadding(dp(8), dp(8), dp(8), dp(8));
+
+        GradientDrawable circleBg = new GradientDrawable();
+        circleBg.setShape(GradientDrawable.OVAL);
+        circleBg.setStroke(dp(3), Color.parseColor("#FF4444"));
+        circleBg.setColor(Color.parseColor("#33FF4444"));
+        circleLayout.setBackground(circleBg);
+
+        TextView hint = new TextView(this);
+        hint.setText("🎯");
+        hint.setTextSize(32f);
+        circleLayout.addView(hint);
+
+        int savedCircleX = prefs.getInt("circle_x", dp(100));
+        int savedCircleY = prefs.getInt("circle_y", dp(300));
+
+        circleParams = new WindowManager.LayoutParams(
+                dp(120), dp(120),
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                        : WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+        );
+        circleParams.gravity = Gravity.TOP | Gravity.START;
+        circleParams.x = savedCircleX;
+        circleParams.y = savedCircleY;
+
+        windowManager.addView(circleLayout, circleParams);
+        circleView = circleLayout;
+
+        circleLayout.setOnTouchListener(new View.OnTouchListener() {
+            private int initialX, initialY;
+            private float initialTouchX, initialTouchY;
+            private boolean isDragging = false;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+
+                    case MotionEvent.ACTION_DOWN:
+                        initialX = circleParams.x;
+                        initialY = circleParams.y;
+                        initialTouchX = event.getRawX();
+                        initialTouchY = event.getRawY();
+                        isDragging = false;
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        float dx = event.getRawX() - initialTouchX;
+                        float dy = event.getRawY() - initialTouchY;
+
+                        if (Math.abs(dx) > dp(8) || Math.abs(dy) > dp(8)) {
+                            isDragging = true;
+
+                            circleParams.x = initialX + (int) dx;
+                            circleParams.y = initialY + (int) dy;
+
+                            windowManager.updateViewLayout(circleView, circleParams);
+                        }
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                        // сохраняем координаты центра круга
+                        targetX = circleParams.x + dp(60);
+                        targetY = circleParams.y + dp(60);
+
+                        prefs.edit()
+                                .putInt("target_x", targetX)
+                                .putInt("target_y", targetY)
+                                .putInt("circle_x", circleParams.x)
+                                .putInt("circle_y", circleParams.y)
+                                .putBoolean("has_macro", true)
+                                .apply();
+
+                        windowManager.removeView(circleView);
+                        circleView = null;
+                        isSettingTarget = false;
+
+                        createMacroButton();
+
+                        Toast.makeText(FloatingMenuService.this,
+                                "✅ Точка сохранена",
+                                Toast.LENGTH_SHORT).show();
+
+                        return true;
+                }
+                return false;
+            }
+        });
+    }
+
+    private void createMacroButton() {
+        if (macroButton != null) return;
+
+        macroButton = new Button(this);
+        macroButton.setText("⚔️");
+        macroButton.setTextSize(28f);
+        macroButton.setTextColor(Color.WHITE);
+        macroButton.setBackgroundColor(Color.parseColor("#2ECC71"));
+        macroButton.setAllCaps(false);
+        macroButton.setPadding(0, 0, 0, 0);
+
+        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                dp(70), dp(70),
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                        : WindowManager.LayoutParams.TYPE_PHONE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                PixelFormat.TRANSLUCENT
+        );
+
+        params.gravity = Gravity.TOP | Gravity.START;
+        params.x = prefs.getInt("macro_x", dp(200));
+        params.y = prefs.getInt("macro_y", dp(500));
+
+        windowManager.addView(macroButton, params);
+
+        macroButton.setOnTouchListener(new View.OnTouchListener() {
+            private float startX, startY;
+            private boolean isDragging = false;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+
+                switch (event.getAction()) {
+
+                    case MotionEvent.ACTION_DOWN:
+                        startX = event.getRawX();
+                        startY = event.getRawY();
+                        isDragging = false;
+
+                        // старт кликов
+                        startClicking();
+                        macroButton.setBackgroundColor(Color.parseColor("#FF4444"));
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        float dx = event.getRawX() - startX;
+                        float dy = event.getRawY() - startY;
+
+                        if (Math.abs(dx) > dp(10) || Math.abs(dy) > dp(10)) {
+                            isDragging = true;
+
+                            params.x += (int) dx;
+                            params.y += (int) dy;
+
+                            startX = event.getRawX();
+                            startY = event.getRawY();
+
+                            windowManager.updateViewLayout(macroButton, params);
+
+                            prefs.edit()
+                                    .putInt("macro_x", params.x)
+                                    .putInt("macro_y", params.y)
+                                    .apply();
+                        }
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+                        stopClicking();
+                        macroButton.setBackgroundColor(Color.parseColor("#2ECC71"));
+                        return true;
+                }
+                return false;
+            }
+        });
+    }
+
+    private void finishTargetSetup() {
+        isSettingTarget = false;
+        if (circleView != null) {
+            windowManager.removeView(circleView);
+            circleView = null;
+        }
+        createMacroButton();
+        showMenu();
+    }
+
+    private void startClicking() {
+        ClickerService clickerService = ClickerService.getInstance();
+        if (clickerService != null) {
+            clickerService.setClickPosition(targetX, targetY);
+            int cps = prefs.getInt("cps", 10);
+            clickerService.setCPS(cps);
+            clickerService.startClicking();
+        } else {
+            Toast.makeText(this, "⚠️ Включите специальные возможности", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void stopClicking() {
+        ClickerService clickerService = ClickerService.getInstance();
+        if (clickerService != null) {
+            clickerService.stopClicking();
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        stopClicking();
+        try {
+            if (logoView != null) windowManager.removeView(logoView);
+            if (menuView != null) windowManager.removeView(menuView);
+            if (circleView != null) windowManager.removeView(circleView);
+            if (macroButton != null) windowManager.removeView(macroButton);
+        } catch (Exception e) {}
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+}
