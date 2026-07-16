@@ -5,7 +5,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -13,7 +12,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
-    private Button btnGrantOverlay, btnGrantAccessibility, btnStartMenu;
+    private static final int OVERLAY_PERMISSION_REQUEST = 1001;
+    private Button btnGrantOverlay, btnStartMenu;
     private TextView tvStatus;
 
     @Override
@@ -22,36 +22,25 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         btnGrantOverlay = findViewById(R.id.btn_grant_overlay);
-        btnGrantAccessibility = findViewById(R.id.btn_grant_accessibility);
         btnStartMenu = findViewById(R.id.btn_start_overlay);
         tvStatus = findViewById(R.id.tv_status);
 
-        // Проверяем разрешения при запуске
         checkPermissions();
 
-        // Кнопка: разрешение Overlay
         btnGrantOverlay.setOnClickListener(v -> {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:" + getPackageName()));
-                startActivityForResult(intent, 1001);
+                startActivityForResult(intent, OVERLAY_PERMISSION_REQUEST);
             }
         });
 
-        // Кнопка: включить Accessibility
-        btnGrantAccessibility.setOnClickListener(v -> {
-            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            startActivity(intent);
-        });
-
-        // Кнопка: запустить оверлей-меню
         btnStartMenu.setOnClickListener(v -> {
+            // ============================================================
+            // ПРОВЕРКА через Settings.canDrawOverlays() — 100% рабочий способ
+            // ============================================================
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
                 Toast.makeText(this, "❌ Сначала дайте разрешение Overlay", Toast.LENGTH_SHORT).show();
-                return;
-            }
-            if (!isAccessibilityEnabled()) {
-                Toast.makeText(this, "❌ Сначала включите специальные возможности", Toast.LENGTH_LONG).show();
                 return;
             }
             Intent serviceIntent = new Intent(this, FloatingMenuService.class);
@@ -60,39 +49,29 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 startService(serviceIntent);
             }
-            Toast.makeText(this, "✅ Оверлей-меню запущено", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "✅ Оверлей запущен!", Toast.LENGTH_SHORT).show();
         });
     }
 
     private void checkPermissions() {
         boolean overlayGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
                 Settings.canDrawOverlays(this);
-        boolean accessibilityEnabled = isAccessibilityEnabled();
 
         if (overlayGranted) {
             btnGrantOverlay.setText("✅ Overlay разрешено");
             btnGrantOverlay.setEnabled(false);
+            tvStatus.setText("✅ Всё готово к работе");
+            tvStatus.setTextColor(getColor(android.R.color.holo_green_light));
+        } else {
+            tvStatus.setText("❌ Дайте разрешение Overlay");
+            tvStatus.setTextColor(getColor(android.R.color.holo_red_light));
         }
-
-        if (accessibilityEnabled) {
-            btnGrantAccessibility.setText("✅ Accessibility включено");
-            btnGrantAccessibility.setEnabled(false);
-        }
-
-        tvStatus.setText(overlayGranted && accessibilityEnabled ? "✅ Всё готово к работе" : "❌ Дайте разрешения ниже");
-    }
-
-    private boolean isAccessibilityEnabled() {
-        // Проверяем, включена ли специальная возможность для нашего приложения
-        String enabledServices = Settings.Secure.getString(getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        return enabledServices != null && enabledServices.contains(getPackageName());
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == 1001) {
+        if (requestCode == OVERLAY_PERMISSION_REQUEST) {
             checkPermissions();
         }
     }
@@ -100,7 +79,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Обновляем статус при возвращении в приложение
         checkPermissions();
     }
 }
