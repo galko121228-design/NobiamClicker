@@ -3,7 +3,6 @@ package com.nobiam.clicker;
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
 import android.graphics.Path;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.accessibility.AccessibilityEvent;
@@ -14,6 +13,7 @@ public class ClickerService extends AccessibilityService {
     private boolean isClicking = false;
     private Handler handler = new Handler(Looper.getMainLooper());
     private int delayMs = 100;
+    private int clickX = 500, clickY = 800;
 
     @Override
     public void onCreate() {
@@ -40,6 +40,11 @@ public class ClickerService extends AccessibilityService {
         stopClicking();
     }
 
+    public void setClickPosition(int x, int y) {
+        this.clickX = x;
+        this.clickY = y;
+    }
+
     public void setCPS(int cps) {
         if (cps > 0) {
             this.delayMs = 1000 / cps;
@@ -61,7 +66,7 @@ public class ClickerService extends AccessibilityService {
         if (!isClicking) return;
         try {
             Path clickPath = new Path();
-            clickPath.moveTo(500, 800);
+            clickPath.moveTo(clickX, clickY);
             GestureDescription.Builder builder = new GestureDescription.Builder();
             builder.addStroke(new GestureDescription.StrokeDescription(clickPath, 0, 1));
             dispatchGesture(builder.build(), new GestureResultCallback() {
