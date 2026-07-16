@@ -7,16 +7,13 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.accessibility.AccessibilityEvent;
-import androidx.annotation.RequiresApi;
 
 public class ClickerService extends AccessibilityService {
 
     private static ClickerService instance;
     private boolean isClicking = false;
     private Handler handler = new Handler(Looper.getMainLooper());
-    private int clickX = 0;
-    private int clickY = 0;
-    private int delayMs = 50; // по умолчанию 20 CPS
+    private int delayMs = 100;
 
     @Override
     public void onCreate() {
@@ -43,11 +40,6 @@ public class ClickerService extends AccessibilityService {
         stopClicking();
     }
 
-    public void setClickPosition(int x, int y) {
-        this.clickX = x;
-        this.clickY = y;
-    }
-
     public void setCPS(int cps) {
         if (cps > 0) {
             this.delayMs = 1000 / cps;
@@ -55,7 +47,7 @@ public class ClickerService extends AccessibilityService {
     }
 
     public void startClicking() {
-        if (isClicking || (clickX == 0 && clickY == 0)) return;
+        if (isClicking) return;
         isClicking = true;
         performClick();
     }
@@ -65,42 +57,24 @@ public class ClickerService extends AccessibilityService {
         handler.removeCallbacksAndMessages(null);
     }
 
-    public boolean isClicking() {
-        return isClicking;
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.N)
     private void performClick() {
         if (!isClicking) return;
-
-        // Создаём путь для клика
-        Path clickPath = new Path();
-        clickPath.moveTo(clickX, clickY);
-
-        GestureDescription.Builder builder = new GestureDescription.Builder();
-        builder.addStroke(new GestureDescription.StrokeDescription(clickPath, 0, 1));
-
-        // Отправляем жест
-        dispatchGesture(builder.build(), new GestureResultCallback() {
-            @Override
-            public void onCompleted(GestureDescription gestureDescription) {
-                super.onCompleted(gestureDescription);
-                // Планируем следующий клик с задержкой
-                if (isClicking) {
-                    int variance = (int) (Math.random() * 10 - 5);
-                    int nextDelay = Math.max(delayMs + variance, 30);
-                    handler.postDelayed(() -> performClick(), nextDelay);
+        try {
+            Path clickPath = new Path();
+            clickPath.moveTo(500, 800);
+            GestureDescription.Builder builder = new GestureDescription.Builder();
+            builder.addStroke(new GestureDescription.StrokeDescription(clickPath, 0, 1));
+            dispatchGesture(builder.build(), new GestureResultCallback() {
+                @Override
+                public void onCompleted(GestureDescription gestureDescription) {
+                    super.onCompleted(gestureDescription);
+                    if (isClicking) {
+                        handler.postDelayed(() -> performClick(), delayMs);
+                    }
                 }
-            }
-
-            @Override
-            public void onCancelled(GestureDescription gestureDescription) {
-                super.onCancelled(gestureDescription);
-                // Если жест отменился — пробуем ещё раз
-                if (isClicking) {
-                    handler.postDelayed(() -> performClick(), 50);
-                }
-            }
-        }, null);
+            }, null);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

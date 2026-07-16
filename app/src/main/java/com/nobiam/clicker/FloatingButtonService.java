@@ -4,8 +4,8 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.graphics.PixelFormat;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.IBinder;
 import android.view.Gravity;
@@ -22,55 +22,32 @@ public class FloatingButtonService extends Service {
     private WindowManager.LayoutParams params;
     private SharedPreferences prefs;
     private boolean isActive = false;
-    private int initialX, initialY;
     private float initialTouchX, initialTouchY;
-    private boolean isDragging = false;
-
-    private static final String PREF_NAME = "overlay_prefs";
-    private static final String KEY_POS_X = "pos_x";
-    private static final String KEY_POS_Y = "pos_y";
-    private static final String KEY_ACTIVE = "clicker_active";
+    private int initialX, initialY;
+    private boolean isDragging;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        prefs = getSharedPreferences("overlay_prefs", Context.MODE_PRIVATE);
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
 
-        isActive = prefs.getBoolean(KEY_ACTIVE, false);
-        int savedX = prefs.getInt(KEY_POS_X, 200);
-        int savedY = prefs.getInt(KEY_POS_Y, 400);
-
-        createFloatingView(savedX, savedY);
-    }
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        return START_STICKY;
-    }
-
-    private void createFloatingView(int savedX, int savedY) {
-        // Создаём простую кнопку вместо кастомного View
+        // Простая кнопка
         floatingButton = new Button(this);
-        floatingButton.setText(isActive ? "⏸" : "▶");
-        floatingButton.setTextSize(24f);
+        floatingButton.setText("▶");
+        floatingButton.setTextSize(20);
+        floatingButton.setBackgroundColor(Color.parseColor("#2ECC71"));
+        floatingButton.setTextColor(Color.WHITE);
         floatingButton.setAllCaps(false);
-        
-        // Цвета
-        int bgColor = isActive ? 0xFFFF4444 : 0xFF2ECC71;
-        GradientDrawable gd = new GradientDrawable();
-        gd.setShape(GradientDrawable.OVAL);
-        gd.setColor(bgColor);
-        floatingButton.setBackground(gd);
-        floatingButton.setTextColor(0xFFFFFFFF);
-        floatingButton.setPadding(0, 0, 0, 0);
 
-        // Настройка параметров окна
+        int savedX = prefs.getInt("x", 200);
+        int savedY = prefs.getInt("y", 400);
+
         params = new WindowManager.LayoutParams(
-                140, 140,
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                        : WindowManager.LayoutParams.TYPE_PHONE,
+                120, 120,
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
+                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
+                        WindowManager.LayoutParams.TYPE_PHONE,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
         );
@@ -78,11 +55,8 @@ public class FloatingButtonService extends Service {
         params.x = savedX;
         params.y = savedY;
 
-        // Добавляем View
+        // Добавляем кнопку
         try {
-            if (floatingButton.getParent() != null) {
-                windowManager.removeView(floatingButton);
-            }
             windowManager.addView(floatingButton, params);
         } catch (Exception e) {
             e.printStackTrace();
@@ -90,76 +64,60 @@ public class FloatingButtonService extends Service {
             return;
         }
 
-        // Обработка касаний (перетаскивание и нажатие)
-        floatingButton.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        initialX = params.x;
-                        initialY = params.y;
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
-                        isDragging = false;
-                        return true;
-                    case MotionEvent.ACTION_MOVE:
-                        float deltaX = event.getRawX() - initialTouchX;
-                        float deltaY = event.getRawY() - initialTouchY;
-                        if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
-                            isDragging = true;
-                            params.x = initialX + (int) deltaX;
-                            params.y = initialY + (int) deltaY;
-                            try {
-                                windowManager.updateViewLayout(floatingButton, params);
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }
-                        return true;
-                    case MotionEvent.ACTION_UP:
-                        // Сохраняем позицию
-                        prefs.edit().putInt(KEY_POS_X, params.x).putInt(KEY_POS_Y, params.y).apply();
-                        if (!isDragging) {
-                            toggleClicker();
-                        }
-                        return true;
-                }
-                return false;
+        // Обработка касаний
+        floatingButton.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    initialX = params.x;
+                    initialY = params.y;
+                    initialTouchX = event.getRawX();
+                    initialTouchY = event.getRawY();
+                    isDragging = false;
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    float dx = event.getRawX() - initialTouchX;
+                    float dy = event.getRawY() - initialTouchY;
+                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                        isDragging = true;
+                        params.x = initialX + (int) dx;
+                        params.y = initialY + (int) dy;
+                        windowManager.updateViewLayout(floatingButton, params);
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    prefs.edit().putInt("x", params.x).putInt("y", params.y).apply();
+                    if (!isDragging) {
+                        toggleClicker();
+                    }
+                    return true;
             }
+            return false;
         });
     }
 
     private void toggleClicker() {
         isActive = !isActive;
-        prefs.edit().putBoolean(KEY_ACTIVE, isActive).apply();
-
-        // Меняем внешний вид
         if (isActive) {
             floatingButton.setText("⏸");
-            GradientDrawable gd = new GradientDrawable();
-            gd.setShape(GradientDrawable.OVAL);
-            gd.setColor(0xFFFF4444);
-            floatingButton.setBackground(gd);
-        } else {
-            floatingButton.setText("▶");
-            GradientDrawable gd = new GradientDrawable();
-            gd.setShape(GradientDrawable.OVAL);
-            gd.setColor(0xFF2ECC71);
-            floatingButton.setBackground(gd);
-        }
-
-        // Подключаемся к ClickerService
-        ClickerService clickerService = ClickerService.getInstance();
-        if (clickerService != null) {
-            if (isActive) {
-                clickerService.startClicking();
-                Toast.makeText(this, "Кликер ВКЛЮЧЁН", Toast.LENGTH_SHORT).show();
+            floatingButton.setBackgroundColor(Color.parseColor("#E74C3C"));
+            Toast.makeText(this, "▶ Кликер включён", Toast.LENGTH_SHORT).show();
+            
+            // Пробуем подключиться к ClickerService
+            ClickerService cs = ClickerService.getInstance();
+            if (cs != null) {
+                cs.startClicking();
             } else {
-                clickerService.stopClicking();
-                Toast.makeText(this, "Кликер ВЫКЛЮЧЁН", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "⚠️ Включите доступность", Toast.LENGTH_LONG).show();
             }
         } else {
-            Toast.makeText(this, "⚠️ Включите доступность в настройках", Toast.LENGTH_LONG).show();
+            floatingButton.setText("▶");
+            floatingButton.setBackgroundColor(Color.parseColor("#2ECC71"));
+            Toast.makeText(this, "⏸ Кликер выключен", Toast.LENGTH_SHORT).show();
+            
+            ClickerService cs = ClickerService.getInstance();
+            if (cs != null) {
+                cs.stopClicking();
+            }
         }
     }
 
@@ -167,7 +125,7 @@ public class FloatingButtonService extends Service {
     public void onDestroy() {
         super.onDestroy();
         try {
-            if (floatingButton != null && floatingButton.getParent() != null) {
+            if (floatingButton != null && windowManager != null) {
                 windowManager.removeView(floatingButton);
             }
         } catch (Exception e) {
