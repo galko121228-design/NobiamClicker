@@ -1,54 +1,128 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:gravity="center"
-    android:padding="30dp"
-    android:background="#1a1a1a">
+    android:padding="20dp"
+    android:background="#121212">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Nobiam Clicker"
-        android:textSize="28sp"
-        android:textColor="#00e5ff"
-        android:textStyle="bold"
-        android:layout_marginBottom="30dp"/>
-
-    <TextView
-        android:id="@+id/cpsText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="CPS: 10"
-        android:textSize="20sp"
-        android:textColor="#ffffff"
-        android:layout_marginBottom="10dp"/>
-
-    <SeekBar
-        android:id="@+id/cpsSeekBar"
+    <!-- Основная карточка -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:max="19"
-        android:progress="9"/>
+        app:cardCornerRadius="24dp"
+        app:cardBackgroundColor="#1A4F3B"
+        app:cardElevation="8dp"
+        android:layout_marginBottom="20dp">
 
-    <Button
-        android:id="@+id/btnStartService"
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚔️ NOBIAM"
+                android:textSize="28sp"
+                android:textColor="#B8F2D0"
+                android:textStyle="bold"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="AUTO CLICKER"
+                android:textSize="16sp"
+                android:textColor="#7AB89A"
+                android:letterSpacing="0.15"
+                android:layout_marginBottom="24dp"/>
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Нажмите 'Запомнить координаты'"
+                android:textColor="#B8F2D0"
+                android:textSize="14sp"
+                android:layout_marginBottom="16dp"/>
+
+            <TextView
+                android:id="@+id/cpsText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CPS: 10"
+                android:textSize="18sp"
+                android:textColor="#FFFFFF"
+                android:layout_marginBottom="8dp"/>
+
+            <SeekBar
+                android:id="@+id/cpsSeekBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="19"
+                android:progress="9"
+                android:thumbTint="#B8F2D0"
+                android:progressTint="#B8F2D0"/>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Карточка с кнопками -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:text="Запустить кликер"
-        android:textSize="18sp"
-        android:backgroundTint="#00e5ff"
-        android:textColor="#000000"
-        android:layout_marginTop="30dp"/>
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="24dp"
+        app:cardBackgroundColor="#1A4F3B"
+        app:cardElevation="4dp">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <Button
+                android:id="@+id/btnSetCoords"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="🎯 Запомнить координаты"
+                android:textSize="16sp"
+                android:textColor="#121212"
+                android:backgroundTint="#B8F2D0"
+                android:layout_marginBottom="16dp"/>
+
+            <Button
+                android:id="@+id/btnStartService"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="🚀 Запустить оверлей"
+                android:textSize="18sp"
+                android:textColor="#1A4F3B"
+                android:backgroundTint="#B8F2D0"/>
+
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Футер -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Нажмите кнопку, дайте разрешение,\nи плавающая кнопка появится поверх экрана"
-        android:textColor="#888888"
+        android:text="Оверлей появится поверх всех приложений"
+        android:textColor="#666666"
         android:gravity="center"
-        android:textSize="14sp"
+        android:textSize="12sp"
         android:layout_marginTop="20dp"/>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Nobiam Brand © 2026"
+        android:textColor="#333333"
+        android:textSize="10sp"
+        android:layout_marginTop="10dp"/>
 
 </LinearLayout>
