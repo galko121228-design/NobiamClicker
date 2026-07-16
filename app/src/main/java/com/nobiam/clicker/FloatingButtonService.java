@@ -175,7 +175,10 @@ public class FloatingButtonService extends Service {
             });
             borderAnim.start();
 
-            floatingView.animate().elevation(targetElevation).alpha(targetAlpha).setDuration(300).start();
+            floatingView.animate().alpha(targetAlpha).setDuration(300).start();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                floatingView.animate().elevation(targetElevation).setDuration(300).start();
+            }
         } else {
             bg.setStroke(2, targetBorderColor);
             floatingView.setElevation(targetElevation);
