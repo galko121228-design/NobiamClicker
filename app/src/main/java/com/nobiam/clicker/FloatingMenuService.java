@@ -12,12 +12,9 @@ import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -43,12 +40,10 @@ public class FloatingMenuService extends Service {
     private WindowManager.LayoutParams logoParams;
     private WindowManager.LayoutParams menuParams;
     private WindowManager.LayoutParams circleParams;
-    private WindowManager.LayoutParams macroParams;
     private boolean isMenuOpen = false;
     private boolean isSettingTarget = false;
     private int targetX = 500, targetY = 800;
     private float density;
-    private boolean isDragging = false;
 
     @Override
     public void onCreate() {
@@ -74,8 +69,6 @@ public class FloatingMenuService extends Service {
             startForeground(NOTIFICATION_ID, createNotification());
         }
 
-        checkSamsungOneHandedMode();
-
         createLogo();
         createMenu();
         hideMenu();
@@ -83,15 +76,6 @@ public class FloatingMenuService extends Service {
         if (prefs.getBoolean("has_macro", false)) {
             createMacroButton();
         }
-    }
-
-    private void checkSamsungOneHandedMode() {
-        try {
-            int oneHandedMode = Settings.Secure.getInt(getContentResolver(), "one_handed_mode");
-            if (oneHandedMode == 1) {
-                Toast.makeText(this, "⚠️ Отключите One-Handed Mode в настройках Samsung", Toast.LENGTH_LONG).show();
-            }
-        } catch (Settings.SettingNotFoundException e) {}
     }
 
     private void createNotificationChannel() {
@@ -133,6 +117,9 @@ public class FloatingMenuService extends Service {
         gd.setStroke(dp(2), Color.parseColor("#2ECC71"));
         logoLayout.setBackground(gd);
 
+        logoLayout.setClickable(true);
+        logoLayout.setFocusable(true);
+
         TextView logoText = new TextView(this);
         logoText.setText("⚔️");
         logoText.setTextSize(28f);
@@ -144,7 +131,9 @@ public class FloatingMenuService extends Service {
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                         ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                         : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
         );
         logoParams.gravity = Gravity.TOP | Gravity.START;
@@ -154,9 +143,6 @@ public class FloatingMenuService extends Service {
         windowManager.addView(logoLayout, logoParams);
         logoView = logoLayout;
 
-        // ============================================================
-        // FIX: OnTouchListener вместо OnClickListener (работает на всех устройствах)
-        // ============================================================
         logoLayout.setOnTouchListener(new View.OnTouchListener() {
             private float startX, startY;
             private boolean isDragging = false;
@@ -186,8 +172,6 @@ public class FloatingMenuService extends Service {
 
                     case MotionEvent.ACTION_UP:
                         if (!isDragging) {
-                            // Это клик, а не перетаскивание
-                            v.performClick(); // Для Accessibility
                             toggleMenu();
                         }
                         return true;
@@ -198,11 +182,28 @@ public class FloatingMenuService extends Service {
     }
 
     private void toggleMenu() {
-        Toast.makeText(this, isMenuOpen ? "📂 Закрываем меню" : "📂 Открываем меню", Toast.LENGTH_SHORT).show();
         if (isMenuOpen) {
             hideMenu();
         } else {
             showMenu();
+        }
+    }
+
+    private void showMenu() {
+        if (menuView != null) {
+            menuView.setVisibility(View.VISIBLE);
+            menuView.animate().alpha(1.0f).setDuration(250)
+                    .setInterpolator(new DecelerateInterpolator()).start();
+            isMenuOpen = true;
+        }
+    }
+
+    private void hideMenu() {
+        if (menuView != null) {
+            menuView.animate().alpha(0.0f).setDuration(200).withEndAction(() -> {
+                menuView.setVisibility(View.GONE);
+                isMenuOpen = false;
+            }).start();
         }
     }
 
@@ -253,7 +254,9 @@ public class FloatingMenuService extends Service {
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                         ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                         : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
         );
         menuParams.gravity = Gravity.CENTER;
@@ -264,7 +267,7 @@ public class FloatingMenuService extends Service {
         windowManager.addView(menuLayout, menuParams);
         menuView = menuLayout;
 
-        // Перетаскивание меню
+        // FIX: return false в ACTION_DOWN — чтобы кнопки работали
         menuLayout.setOnTouchListener(new View.OnTouchListener() {
             private int initialX, initialY;
             private float initialTouchX, initialTouchY;
@@ -277,7 +280,8 @@ public class FloatingMenuService extends Service {
                         initialY = menuParams.y;
                         initialTouchX = event.getRawX();
                         initialTouchY = event.getRawY();
-                        return true;
+                        return false; // 🔥 НЕ БЛОКИРУЕМ КНОПКИ
+
                     case MotionEvent.ACTION_MOVE:
                         menuParams.x = initialX + (int) (event.getRawX() - initialTouchX);
                         menuParams.y = initialY + (int) (event.getRawY() - initialTouchY);
@@ -304,27 +308,6 @@ public class FloatingMenuService extends Service {
         params.setMargins(0, dp(6), 0, dp(6));
         btn.setLayoutParams(params);
         return btn;
-    }
-
-    private void showMenu() {
-        if (menuView != null) {
-            menuView.setVisibility(View.VISIBLE);
-            menuView.animate().alpha(1.0f).setDuration(250)
-                    .setInterpolator(new DecelerateInterpolator()).start();
-            isMenuOpen = true;
-            Toast.makeText(this, "📂 Меню открыто", Toast.LENGTH_SHORT).show();
-        } else {
-            Toast.makeText(this, "❌ Меню не создано", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void hideMenu() {
-        if (menuView != null) {
-            menuView.animate().alpha(0.0f).setDuration(200).withEndAction(() -> {
-                menuView.setVisibility(View.GONE);
-                isMenuOpen = false;
-            }).start();
-        }
     }
 
     private void showTargetCircle() {
@@ -354,7 +337,9 @@ public class FloatingMenuService extends Service {
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                         ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                         : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
         );
         circleParams.gravity = Gravity.TOP | Gravity.START;
@@ -377,11 +362,13 @@ public class FloatingMenuService extends Service {
                         initialTouchX = event.getRawX();
                         initialTouchY = event.getRawY();
                         return true;
+
                     case MotionEvent.ACTION_MOVE:
                         circleParams.x = initialX + (int) (event.getRawX() - initialTouchX);
                         circleParams.y = initialY + (int) (event.getRawY() - initialTouchY);
                         windowManager.updateViewLayout(circleView, circleParams);
                         return true;
+
                     case MotionEvent.ACTION_UP:
                         prefs.edit()
                                 .putInt("circle_x", circleParams.x)
@@ -394,8 +381,6 @@ public class FloatingMenuService extends Service {
                                 .putInt("target_y", targetY)
                                 .putBoolean("has_macro", true)
                                 .apply();
-
-                        Toast.makeText(FloatingMenuService.this, "✅ Координаты сохранены!", Toast.LENGTH_SHORT).show();
                         finishTargetSetup();
                         return true;
                 }
@@ -440,7 +425,9 @@ public class FloatingMenuService extends Service {
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                         ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                         : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
         );
         btnParams.gravity = Gravity.TOP | Gravity.START;
