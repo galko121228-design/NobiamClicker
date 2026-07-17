@@ -1,36 +1,25 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.overlay">
+<?xml version="1.0" encoding="utf-8"?>
+<manifest package="com.nobiam.clicker"
+    xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Разрешения -->
+    <!-- 🔐 РАЗРЕШЕНИЯ -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Для accessibility -->
+    <uses-permission android:name="android.permission.BIND_ACCESSIBILITY_SERVICE"/>
 
     <application
         android:allowBackup="true"
-        android:label="OverlayApp"
-        android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+        android:label="Nobiam Clicker"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
 
-        <!-- Accessibility Service (для кликов) -->
-        <service
-            android:name=".OverlayService"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="true">
-
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService"/>
-            </intent-filter>
-
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_config"/>
-        </service>
-
-        <!-- Запуск -->
+        <!-- 🚀 MAIN ACTIVITY -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
@@ -38,6 +27,26 @@
             </intent-filter>
         </activity>
 
-    </application>
+        <!-- 🔥 FLOATING OVERLAY SERVICE -->
+        <service
+            android:name=".FloatingMenuService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
+        <!-- ⚡ ACCESSIBILITY CLICK SERVICE -->
+        <service
+            android:name=".ClickerService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="false">
+
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config"/>
+        </service>
+
+    </application>
 </manifest>

@@ -1,22 +1,22 @@
 package com.nobiam.clicker;
 
-import android.app.*;
-import android.content.*;
-import android.graphics.*;
-import android.os.*;
+import android.app.Service;
+import android.content.Intent;
+import android.graphics.PixelFormat;
+import android.os.IBinder;
 import android.view.*;
-import android.widget.*;
+import android.widget.ImageView;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 
 public class FloatingMenuService extends Service {
 
     private WindowManager windowManager;
     private View triggerView;
-    private WindowManager.LayoutParams params;
+    private WindowManager.LayoutParams triggerParams;
 
-    private float initialX, initialY;
+    private int initialX, initialY;
     private float initialTouchX, initialTouchY;
-
-    private boolean isMoving = false;
 
     @Override
     public void onCreate() {
@@ -25,43 +25,41 @@ public class FloatingMenuService extends Service {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
 
         createTrigger();
-        startForegroundService();
     }
 
     private void createTrigger() {
-        triggerView = new View(this);
 
+        ImageView trigger = new ImageView(this);
+
+        // 🔥 КРУГЛАЯ КНОПКА (как ты хотел)
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#AA00BCD4")); // твой стиль
+        bg.setColor(Color.parseColor("#FF5722"));
         bg.setShape(GradientDrawable.OVAL);
+        trigger.setBackground(bg);
 
-        triggerView.setBackground(bg);
+        triggerView = trigger;
 
-        int size = dp(64);
-
-        params = new WindowManager.LayoutParams(
-                size,
-                size,
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ?
-                        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY :
-                        WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+        triggerParams = new WindowManager.LayoutParams(
+                140,
+                140,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
         );
 
-        params.gravity = Gravity.TOP | Gravity.START;
-        params.x = 300;
-        params.y = 600;
+        triggerParams.gravity = Gravity.TOP | Gravity.START;
+        triggerParams.x = 300;
+        triggerParams.y = 600;
 
-        windowManager.addView(triggerView, params);
+        windowManager.addView(triggerView, triggerParams);
 
         setupTouch();
     }
 
     private void setupTouch() {
         triggerView.setOnTouchListener(new View.OnTouchListener() {
-            private long downTime;
+
+            long pressTime = 0;
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -69,36 +67,123 @@ public class FloatingMenuService extends Service {
                 switch (event.getAction()) {
 
                     case MotionEvent.ACTION_DOWN:
-                        isMoving = false;
-
-                        initialX = params.x;
-                        initialY = params.y;
-
+                        initialX = triggerParams.x;
+                        initialY = triggerParams.y;
                         initialTouchX = event.getRawX();
                         initialTouchY = event.getRawY();
 
-                        downTime = System.currentTimeMillis();
+                        pressTime = System.currentTimeMillis();
+
+                        // 👉 СТАРТ КЛИКОВ (пока заглушка)
+                        startClicking();
+
                         return true;
 
                     case MotionEvent.ACTION_MOVE:
-                        float dx = event.getRawX() - initialTouchX;
-                        float dy = event.getRawY() - initialTouchY;
+                        triggerParams.x = initialX + (int) (event.getRawX() - initialTouchX);
+                        triggerParams.y = initialY + (int) (event.getRawY() - initialTouchY);
 
-                        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-                            isMoving = true;
-                        }
-
-                        params.x = (int) (initialX + dx);
-                        params.y = (int) (initialY + dy);
-
-                        windowManager.updateViewLayout(triggerView, params);
+                        windowManager.updateViewLayout(triggerView, triggerParams);
                         return true;
 
                     case MotionEvent.ACTION_UP:
 
-                        if (!isMoving) {
-                            onTriggerClick();
+                        // 👉 СТОП КЛИКОВ
+                        stopClicking();
+
+                        // 👉 если это был клик (не перетаскивание)
+                        if (System.currentTimeMillis() - pressTime < 200) {
+                            // позже тут откроем меню
                         }
+
+                        return true;
+                }
+                return false;
+            }
+        });
+    }
+
+    private void startClicking() {
+        // пока пусто (добавим в части 3)
+    }
+
+    private void stopClicking() {
+        // пока пусто
+    }
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+}
+
+    private void showTarget() {
+
+        if (targetView != null) return;
+
+        ImageView target = new ImageView(this);
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0x55FF0000);
+        bg.setShape(GradientDrawable.OVAL);
+        bg.setStroke(4, 0xFFFF0000);
+        target.setBackground(bg);
+
+        targetView = target;
+
+        targetParams = new WindowManager.LayoutParams(
+                160,
+                160,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                PixelFormat.TRANSLUCENT
+        );
+
+        targetParams.gravity = Gravity.TOP | Gravity.START;
+        targetParams.x = targetX;
+        targetParams.y = targetY;
+
+        windowManager.addView(targetView, targetParams);
+
+        targetView.setOnTouchListener(new View.OnTouchListener() {
+
+            int initX, initY;
+            float touchX, touchY;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+
+                switch (event.getAction()) {
+
+                    case MotionEvent.ACTION_DOWN:
+                        initX = targetParams.x;
+                        initY = targetParams.y;
+                        touchX = event.getRawX();
+                        touchY = event.getRawY();
+                        return true;
+
+                    case MotionEvent.ACTION_MOVE:
+                        targetParams.x = initX + (int)(event.getRawX() - touchX);
+                        targetParams.y = initY + (int)(event.getRawY() - touchY);
+
+                        windowManager.updateViewLayout(targetView, targetParams);
+                        return true;
+
+                    case MotionEvent.ACTION_UP:
+
+                        // 💾 СОХРАНЯЕМ КООРДИНАТЫ
+                        targetX = targetParams.x;
+                        targetY = targetParams.y;
+
+                        getSharedPreferences("cfg", MODE_PRIVATE)
+                                .edit()
+                                .putInt("x", targetX)
+                                .putInt("y", targetY)
+                                .apply();
+
+                        // ❌ УБИРАЕМ ПРИЦЕЛ
+                        windowManager.removeView(targetView);
+                        targetView = null;
 
                         return true;
                 }
@@ -108,36 +193,41 @@ public class FloatingMenuService extends Service {
         });
     }
 
-    private void onTriggerClick() {
-        Toast.makeText(this, "Открыть меню (дальше добавим)", Toast.LENGTH_SHORT).show();
+
+    private void startClicking() {
+        if (clicking) return;
+
+        clicking = true;
+
+        clickThread = new Thread(() -> {
+
+            while (clicking) {
+
+                try {
+
+                    int x = getSharedPreferences("cfg", MODE_PRIVATE).getInt("x", 500);
+                    int y = getSharedPreferences("cfg", MODE_PRIVATE).getInt("y", 800);
+                    int speed = getSharedPreferences("cfg", MODE_PRIVATE).getInt("speed", 5);
+
+                    ClickerService svc = ClickerService.get();
+
+                    if (svc != null) {
+                        svc.click(x, y);
+                    }
+
+                    Thread.sleep(1000 / Math.max(1, speed));
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+        });
+
+        clickThread.start();
     }
 
-    private void startForegroundService() {
-        String channelId = "clicker_channel";
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    channelId,
-                    "Clicker Service",
-                    NotificationManager.IMPORTANCE_LOW
-            );
-            getSystemService(NotificationManager.class).createNotificationChannel(channel);
-        }
-
-        Notification notification = new Notification.Builder(this, channelId)
-                .setContentTitle("Clicker запущен")
-                .setSmallIcon(android.R.drawable.ic_media_play)
-                .build();
-
-        startForeground(1, notification);
+    private void stopClicking() {
+        clicking = false;
     }
 
-    private int dp(int v) {
-        return (int) (v * getResources().getDisplayMetrics().density);
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-}
