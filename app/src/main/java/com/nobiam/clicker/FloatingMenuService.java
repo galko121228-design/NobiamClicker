@@ -1,101 +1,90 @@
 package com.nobiam.clicker;
 
-import android.app.Service;
-import android.content.Intent;
-import android.graphics.PixelFormat;
-import android.os.IBinder;
-import android.view.*;
-import android.widget.ImageView;
+import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.GestureDescription;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
+import android.graphics.Path;
+import android.graphics.PixelFormat;
+import android.os.Handler;
+import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.WindowManager;
+import android.widget.Button;
 
-public class FloatingMenuService extends Service {
+public class FloatingMenuService extends AccessibilityService {
 
     private WindowManager windowManager;
-    private View triggerView;
-    private WindowManager.LayoutParams triggerParams;
+    private View menuView;
+    private View targetView;
 
-    private int initialX, initialY;
-    private float initialTouchX, initialTouchY;
+    private int targetX = 500;
+    private int targetY = 800;
+
+    private boolean clicking = false;
+    private Handler handler = new Handler();
 
     @Override
-    public void onCreate() {
-        super.onCreate();
+    public void onAccessibilityEvent(android.view.accessibility.AccessibilityEvent event) {}
 
+    @Override
+    public void onInterrupt() {}
+
+    @Override
+    protected void onServiceConnected() {
+        super.onServiceConnected();
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-
-        createTrigger();
+        showMenu();
     }
 
-    private void createTrigger() {
+    private void showMenu() {
+        Button btn = new Button(this);
+        btn.setText("●");
+        btn.setTextSize(18);
+        btn.setBackgroundColor(Color.BLACK);
+        btn.setTextColor(Color.WHITE);
 
-        ImageView trigger = new ImageView(this);
-
-        // 🔥 КРУГЛАЯ КНОПКА (как ты хотел)
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#FF5722"));
-        bg.setShape(GradientDrawable.OVAL);
-        trigger.setBackground(bg);
-
-        triggerView = trigger;
-
-        triggerParams = new WindowManager.LayoutParams(
-                140,
-                140,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                180,
+                180,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
         );
 
-        triggerParams.gravity = Gravity.TOP | Gravity.START;
-        triggerParams.x = 300;
-        triggerParams.y = 600;
+        params.gravity = Gravity.TOP | Gravity.START;
+        params.x = 100;
+        params.y = 300;
 
-        windowManager.addView(triggerView, triggerParams);
+        windowManager.addView(btn, params);
+        menuView = btn;
 
-        setupTouch();
-    }
+        btn.setOnClickListener(v -> showTarget());
 
-    private void setupTouch() {
-        triggerView.setOnTouchListener(new View.OnTouchListener() {
+        btn.setOnLongClickListener(v -> {
+            clicking = !clicking;
+            if (clicking) startClicking();
+            return true;
+        });
 
-            long pressTime = 0;
+        btn.setOnTouchListener(new View.OnTouchListener() {
+            int startX, startY;
+            float touchX, touchY;
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-
                 switch (event.getAction()) {
-
                     case MotionEvent.ACTION_DOWN:
-                        initialX = triggerParams.x;
-                        initialY = triggerParams.y;
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
-
-                        pressTime = System.currentTimeMillis();
-
-                        // 👉 СТАРТ КЛИКОВ (пока заглушка)
-                        startClicking();
-
-                        return true;
+                        startX = params.x;
+                        startY = params.y;
+                        touchX = event.getRawX();
+                        touchY = event.getRawY();
+                        return false;
 
                     case MotionEvent.ACTION_MOVE:
-                        triggerParams.x = initialX + (int) (event.getRawX() - initialTouchX);
-                        triggerParams.y = initialY + (int) (event.getRawY() - initialTouchY);
-
-                        windowManager.updateViewLayout(triggerView, triggerParams);
-                        return true;
-
-                    case MotionEvent.ACTION_UP:
-
-                        // 👉 СТОП КЛИКОВ
-                        stopClicking();
-
-                        // 👉 если это был клик (не перетаскивание)
-                        if (System.currentTimeMillis() - pressTime < 200) {
-                            // позже тут откроем меню
-                        }
-
+                        params.x = startX + (int) (event.getRawX() - touchX);
+                        params.y = startY + (int) (event.getRawY() - touchY);
+                        windowManager.updateViewLayout(menuView, params);
                         return true;
                 }
                 return false;
@@ -103,131 +92,80 @@ public class FloatingMenuService extends Service {
         });
     }
 
-    private void startClicking() {
-        // пока пусто (добавим в части 3)
-    }
-
-    private void stopClicking() {
-        // пока пусто
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
-}
-
     private void showTarget() {
-
         if (targetView != null) return;
 
-        ImageView target = new ImageView(this);
+        View target = new View(this);
+        target.setBackgroundColor(Color.RED);
 
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(0x55FF0000);
-        bg.setShape(GradientDrawable.OVAL);
-        bg.setStroke(4, 0xFFFF0000);
-        target.setBackground(bg);
-
-        targetView = target;
-
-        targetParams = new WindowManager.LayoutParams(
-                160,
-                160,
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+        WindowManager.LayoutParams params = new WindowManager.LayoutParams(
+                80,
+                80,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
                 PixelFormat.TRANSLUCENT
         );
 
-        targetParams.gravity = Gravity.TOP | Gravity.START;
-        targetParams.x = targetX;
-        targetParams.y = targetY;
+        params.gravity = Gravity.TOP | Gravity.START;
+        params.x = targetX;
+        params.y = targetY;
 
-        windowManager.addView(targetView, targetParams);
+        windowManager.addView(target, params);
+        targetView = target;
 
-        targetView.setOnTouchListener(new View.OnTouchListener() {
-
-            int initX, initY;
+        target.setOnTouchListener(new View.OnTouchListener() {
+            int startX, startY;
             float touchX, touchY;
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-
                 switch (event.getAction()) {
-
                     case MotionEvent.ACTION_DOWN:
-                        initX = targetParams.x;
-                        initY = targetParams.y;
+                        startX = params.x;
+                        startY = params.y;
                         touchX = event.getRawX();
                         touchY = event.getRawY();
                         return true;
 
                     case MotionEvent.ACTION_MOVE:
-                        targetParams.x = initX + (int)(event.getRawX() - touchX);
-                        targetParams.y = initY + (int)(event.getRawY() - touchY);
+                        params.x = startX + (int) (event.getRawX() - touchX);
+                        params.y = startY + (int) (event.getRawY() - touchY);
 
-                        windowManager.updateViewLayout(targetView, targetParams);
-                        return true;
+                        targetX = params.x;
+                        targetY = params.y;
 
-                    case MotionEvent.ACTION_UP:
-
-                        // 💾 СОХРАНЯЕМ КООРДИНАТЫ
-                        targetX = targetParams.x;
-                        targetY = targetParams.y;
-
-                        getSharedPreferences("cfg", MODE_PRIVATE)
-                                .edit()
-                                .putInt("x", targetX)
-                                .putInt("y", targetY)
-                                .apply();
-
-                        // ❌ УБИРАЕМ ПРИЦЕЛ
-                        windowManager.removeView(targetView);
-                        targetView = null;
-
+                        windowManager.updateViewLayout(targetView, params);
                         return true;
                 }
-
                 return false;
             }
         });
     }
 
-
     private void startClicking() {
-        if (clicking) return;
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!clicking) return;
 
-        clicking = true;
+                Path path = new Path();
+                path.moveTo(targetX + 40, targetY + 40);
 
-        clickThread = new Thread(() -> {
+                GestureDescription.Builder builder = new GestureDescription.Builder();
+                builder.addStroke(new GestureDescription.StrokeDescription(path, 0, 50));
 
-            while (clicking) {
+                dispatchGesture(builder.build(), null, null);
 
-                try {
-
-                    int x = getSharedPreferences("cfg", MODE_PRIVATE).getInt("x", 500);
-                    int y = getSharedPreferences("cfg", MODE_PRIVATE).getInt("y", 800);
-                    int speed = getSharedPreferences("cfg", MODE_PRIVATE).getInt("speed", 5);
-
-                    ClickerService svc = ClickerService.get();
-
-                    if (svc != null) {
-                        svc.click(x, y);
-                    }
-
-                    Thread.sleep(1000 / Math.max(1, speed));
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                handler.postDelayed(this, 200);
             }
-
-        });
-
-        clickThread.start();
+        }, 200);
     }
 
-    private void stopClicking() {
-        clicking = false;
-    }
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
 
+        if (menuView != null) windowManager.removeView(menuView);
+        if (targetView != null) windowManager.removeView(targetView);
+    }
+}
